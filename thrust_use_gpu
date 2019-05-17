@@ -1,0 +1,177 @@
+#include <thrust/device_vector.h>
+#include <thrust/copy.h>
+#include <thrust/scan.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <ctime>
+// BinaryPredicate for the head flag segment representation
+// equivalent to thrust::not2(thrust::project2nd<int,int>()));
+template <typename HeadFlagType>
+struct head_flag_predicate
+    : public thrust::binary_function<HeadFlagType,HeadFlagType,bool>
+{
+    __host__ __device__
+    bool operator()(HeadFlagType left, HeadFlagType right) const
+    {
+        return !right;
+    }
+};
+
+ 
+using namespace std;
+template <typename Vector>
+void print(const Vector& v)
+{
+  for(size_t i = 0; i < v.size(); i++)
+    std::cout << v[i] << " ";
+  std::cout << "\n";
+}
+
+
+
+template <typename Vector>
+bool read_csv(Vector &table, std::vector<string> columns, char* filename)
+{
+      
+    ifstream fin(filename); //打开文件流操作
+    string line;
+   
+    int j=0;                    
+    float temp_num;
+    while (getline(fin, line))   //整行读取，换行符“\n”区分，遇到文件尾标志eof终止读取
+    {
+        istringstream sin(line); //将整行字符串line读入到字符串流istringstream中
+        vector<string> fields; //声明一个字符串向量
+        string field;
+
+        if (j==0){            
+            while (getline(sin, field, ',')) //将字符串流sin中的字符读入到field字符串中，以逗号为分隔符
+            {
+              columns.push_back(field);
+            }
+        }
+        else{
+           int i=0;            
+           while (getline(sin, field, ',')) //将字符串流sin中的字符读入到field字符串中，以逗号为分隔符
+           {
+              temp_num = atof(field.c_str());  
+              table[i].push_back(temp_num);
+              //table[i].push_back(field);
+              i++;
+           }
+        }
+                 
+       // for (std::vector<std::string>::const_iterator i = fields.begin(); i != fields.end(); ++i)
+       //     std::cout << *i << " ";
+        j++;
+    }
+    cout << "\ntable size:" << table.size() << endl;
+    cout << "\ntable last vector size: " << table[5245].size() << endl;
+  
+   
+   return true;
+
+}
+
+
+template <typename Vector>
+void mean_by_gpu(Vector &table)
+{
+    int row_num, col_num;
+    row_num = table.size();
+    col_num = table[1].size();
+    std::cout << "\n row_num:" << row_num << " col_num:" << col_num << std::endl;
+
+    thrust::device_vector<float> d_keys(table[1].begin(), table[1].end()); 
+    std::cout << "\nd_key size:" << d_keys.size() << std::endl;
+    thrust::device_vector<float> d_output(col_num);
+    
+    std::vector< vector<float> > n_table;  // vector n_table save calculation result as array
+ 
+    thrust::device_vector<float> d_mean(col_num); // device vector to save Average algorithm result
+    thrust::device_vector<float> d_divisor(col_num,3); // device vector save divisor used for division method
+    for (int i = 2; i < row_num -1 ; ++i) {
+        thrust::device_vector<float> d_temp(table[i].begin(), table[i].end());
+        thrust::inclusive_scan_by_key(d_keys.begin(), d_keys.end(), d_temp.begin(), d_output.begin());
+        thrust::transform(d_output.begin(), d_output.end(), d_divisor.begin(), d_mean.begin(), thrust::divides<float>());
+        
+        std::vector<float> n_row(d_mean.begin(), d_mean.end());
+        //std::cout << "n_row: "; print(n_row);
+        n_table.push_back(n_row);   
+    }
+
+  
+}
+
+
+template <typename Vector>
+void sum_by_gpu(Vector &table)
+{
+    int row_num, col_num;
+    row_num = table.size();
+    col_num = table[1].size();
+    std::cout << "\n row_num:" << row_num << " col_num:" << col_num << std::endl;
+
+    thrust::device_vector<float> d_keys(table[1].begin(), table[1].end()); 
+    std::cout << "\nd_key size:" << d_keys.size() << std::endl;
+    
+    thrust::device_vector<float> d_output(col_num);
+
+    std::vector< vector<float> > n_table;  // vector n_table save calculation result as array
+    
+    for (int i = 2; i < row_num -1 ; ++i) {
+        thrust::device_vector<float> d_temp(table[i].begin(), table[i].end()); // vector transform to device_vector
+        thrust::inclusive_scan_by_key(d_keys.begin(), d_keys.end(), d_temp.begin(), d_output.begin()); // scan_by_key
+
+        std::vector<float> n_row(d_output.begin(), d_output.end());
+        //std::cout << "n_row: "; print(n_row);
+        n_table.push_back(n_row);   
+    }
+
+    cout<< "n_table size: " << n_table.size() << endl;  
+    cout<< "n_table last value size: " << n_table.back().size() << endl; 
+}
+
+
+ 
+int main(void)
+{   
+    //*********read csv file*************
+    int ccol_num;    
+    clock_t start,end;
+
+    char filename[] = "test_15min.csv";
+    ccol_num = 5246;
+    //char filename[] = "test_20_20.csv";
+    //ccol_num = 22;
+ 
+    std::vector<float> row;
+    std::vector< std::vector<float> > table(ccol_num, row);  // vector table save 2D array
+    std::vector<string> columns;                             // vector columns save columns name of array
+    
+
+    start = clock();        
+    read_csv(table, columns, filename);  // read
+    end = clock();
+    double endtime=(double)(end-start)/CLOCKS_PER_SEC;   
+    cout<<"read csv consume time:"<<endtime<<"s"<<endl;      
+ 
+   //***************calculate by thrust*******************
+    start = clock();        
+    sum_by_gpu(table); // sum 
+    end = clock();
+    endtime=(double)(end-start)/CLOCKS_PER_SEC;   
+    cout<<"sum by gpu consume time:"<<endtime<<"s"<<endl;      
+
+     
+    start = clock();        
+    mean_by_gpu(table); // mean
+    end = clock();
+    endtime=(double)(end-start)/CLOCKS_PER_SEC;   
+    cout<<"mean by gpu consume time:"<<endtime<<"s"<<endl;      
+
+    return EXIT_SUCCESS;
+}
