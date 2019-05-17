@@ -1,0 +1,114 @@
+Spark on GPU 预研 
+WHY？ 
+如何让计算机程序运算得更快？ 
+更高的处理器频率
+更多的处理器
+更优化的算法
+当前的现状 
+CPU速度的提升变得越发困难。
+CPU vs GPU （老教授 vs 小学生） 
+
+CPU GPU 
+ALU算术运算单元较少很多
+时钟周期高较低
+逻辑控制单元复杂简单
+数据转发用于降低数据延迟功能点，需要容忍延迟
+设计目标低延迟高吞吐量
+CPU GPU 
+多个任务映射到多个线程SIMD, 单指令多数据
+不同的任务运行不同的指令不同的数据运行相同的指令
+10个重量级线程运行在10个核上10,000个轻量级线程运行在100个核上
+每一个线程被显性地管理和调度所有线程被硬件管理和调度
+每一个线程可以独立编程所有线程被统一编程
+CPU vs GPU 并发原理 
+GPU硬件 
+直观感受可移步： 
+https://v.youku.com/v_show/id_XNjY3MTY4NjAw.html
+
+硬件架构 
+整体架构 
+Streaming Multiprocessor 
+
+GPU Thread 层次 
+在逻辑上，threads 分为如下三个层次： 
+thread：每个thread都会运行一次kernel function，threads之间平等无优先级。
+block：一组线程，通常放在SM上执行。
+grid：一组blocks。通常一次kernel function调用的所有thread都放在一个grid中。
+在物理上，threads 仅有两个层次： 
+core：真正执行一个thread的硬件
+warp：硬件上并行执行的32个线程，同一warp的thread执行同一条指令
+CUDA 
+CUDA 程序结构 
+一个典型的CUDA程序结构包含五个主要步骤： 
+1. 分配GPU空间。
+2. 将数据从CPU端复制到GPU端。
+3. 调用CUDA kernel来执行计算。
+4. 计算完成后将数据从GPU拷贝回CPU。
+5. 清理GPU内存空间。
+一个例子
+内存层次 
+GPU的内存层次：Global Memory 类似于Memory； Shared Memory类似于CPU的cache
+
+线程层次 
+
+通用的并行算法 
+理解并行编程的核心在于理解operaion之间何时发生了依赖关系。
+如果没有依赖关系，意味着并行执行的可能。
+map 
+串行的Map 
+并行的Map
+
+fold 
+串行的fold 
+并行的fold 
+scan 
+![algo_parallel_fold](C:\Users\m00165497\Desktop\AI Engine 设计\Case孵化
+\spark_gpu\algo_parallel_fold.PNG)map f s = 
+partition s into P smaller sequences 
+for each subsequence s_i, in parallel 
+out_i = execute map f s_i 
+out = concatenate out_i's
+
+groupby 
+filter 
+scatter/gather 
+Thrust 
+Thrust is a C++ parallel programming library which resembles the C++ Standard Library. 
+Thrust aims to solve two types of problems: problems that can be “implemented efficiently without a 
+detailed mapping to the target architecture”, and problems that don’t merit or won’t receive (for 
+whatever reason) significant optimization attention from the programmer. 
+如何安装CUDF 
+JCuda 
+Spark SQL on GPU 
+需要注意的点 
+内存的大小，显存大小是有限的，不能无限制使用 
+重要的素材 
+http://gpuopenanalytics.com/#/ 
+https://github.com/andygrove/datafusion 
+https://github.com/kiszk/spark-gpu 
+https://stackoverflow.com/questions/22866901/using-java-with-nvidia-gpus-cuda 
+conda config --add channels https://mirrors.ustc.edu.cn/anaconda/pkgs/free/ 
+conda config --add channels https://mirrors.ustc.edu.cn/anaconda/pkgs/main/ 
+conda config --set show_channel_urls yes 
+conda config --set ssl_verify false 
+conda update conda 
+conda install -c nvidia -c rapidsai -c numba -c conda-forge -c defaults cudf=0.6 python=3.6 
+cudatoolkit=9.2
+
+https://www.slideshare.net/ishizaki/transparent-gpu-exploitation-for-java 
+<<且谈 Apache Spark 的 API 三剑客：RDD、DataFrame 和 Dataset>> 
+A Tale of Three Apache Spark APIs: RDDs, DataFrames, and Datasets 
+https://www.infoq.cn/article/three-apache-spark-apis-rdds-dataframes-and-datasets> 
+Spark环境搭建https://www.jianshu.com/p/5b1eafdf34a9 
+https://blog.csdn.net/abcjennifer/article/details/42436727 
+https://www.nvidia.com/content/PDF/fermi_white_papers/NVIDIA_Fermi_Compute_Architecture_Whitepaper.p 
+df 
+NVIDIA Telsa V100 Accelerator 技术规格
+https://wccftech.com/nvidia-volta-tesla-v100-cards-detailed-150w-single-slot-300w-dual-slot-gv100-powered-p 
+cie-accelerators/ 
+Modern GPU Architecture Modern GPU Architecture 
+非常重要： 
+http://15418.courses.cs.cmu.edu/spring2017/ 
+https://web.stanford.edu/class/cs315b/ 
+https://yq.aliyun.com/articles/210393
+
