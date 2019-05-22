@@ -1,0 +1,81 @@
+#include <thrust/device_vector.h>
+#include <thrust/copy.h>
+#include <thrust/scan.h>
+#include <iostream>
+
+// BinaryPredicate for the head flag segment representation
+// equivalent to thrust::not2(thrust::project2nd<int,int>()));
+template <typename HeadFlagType>
+struct head_flag_predicate 
+    : public thrust::binary_function<HeadFlagType,HeadFlagType,bool>
+{
+    __host__ __device__
+    bool operator()(HeadFlagType left, HeadFlagType right) const
+    {
+        return !right;
+    }
+};
+
+
+
+template <typename Vector>
+void print(const Vector& v)
+{
+  for(size_t i = 0; i < v.size(); i++)
+    std::cout << v[i] << " ";
+  std::cout << "\n";
+}
+
+void init_keys(int *keys, const size_t N)
+{
+    for(size_t i = 0; i < N; i+=3){
+        keys[i] = i;
+        keys[i + 1] = i;
+        keys[i + 2] = i;
+    }
+}
+
+void init_values(float *values, const size_t N)
+{
+    for(size_t i = 0; i < N; i+=3){
+        //values[i] = float(i);
+        //values[i + 1] = float(i-1);
+        //values[i + 2] = float(i+1);
+        values[i] = 1;
+        values[i + 1] = 1;
+        values[i + 2] = 1;
+    }
+}
+
+int main(void)
+{
+    const size_t ROW_NUMS = 12, COL_NUMS = 3;
+    int keys[ROW_NUMS];
+    float values[ROW_NUMS]; 
+    init_keys(keys, ROW_NUMS);
+    init_values(values, ROW_NUMS);
+
+    thrust::device_vector<int> d_keys  (keys,   keys   + ROW_NUMS);
+    thrust::device_vector<int> d_values(values, values + ROW_NUMS);
+   // thrust::device_vector<int> table(COL_NUMS);
+    
+   // thrust::fill(table.begin(), table.end(), d_values);
+    
+    // allocate storage for output
+    thrust::device_vector<int> d_output(ROW_NUMS);
+
+    // inclusive scan using keys
+    for(size_t i = 0; i < COL_NUMS; ++i){
+        thrust::inclusive_scan_by_key
+            (d_keys.begin(), d_keys.end(),
+             d_values.begin(),
+             d_output.begin());
+    }
+   
+    std::cout << "Inclusive Segmented Scan w/ Key Sequence\n";
+    std::cout << " input keys: ";  print(d_keys);
+    std::cout << " input values: ";  print(d_values);
+    std::cout << " output values : ";  print(d_output);
+    return 0;
+}
+
