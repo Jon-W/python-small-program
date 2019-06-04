@@ -1,0 +1,4 @@
+
+cudpp 链接：http://cudpp.github.io/cudpp/2.3/example_simple_c_u_d_p_p.html
+1. make filed
+/home/mac/cudpp/cudpp-2.3/ext/moderngpu/src/mgpucontext.cu:35:30: fatal error: util/mgpucontext.h: No such file or directory
